@@ -471,10 +471,14 @@
             `https://router.project-osrm.org/route/v1/foot/${fromSnap.lon},${fromSnap.lat};${toSnap.lon},${toSnap.lat}?steps=true&language=es`
         );
         const routeData = await routeRes.json();
+        console.log('OSRM response:', routeData);
+        log('OSRM code: ' + routeData.code, 'info');
 
-        if (routeData.code !== 'Ok') {
-            throw new Error('No se pudo calcular la ruta');
-        }
+
+       if (routeData.code !== 'Ok') {
+       throw new Error(`OSRM error: ${routeData.code}`);
+         }
+
 
         const route = routeData.routes[0];
         totalDistance = route.distance;
