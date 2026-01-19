@@ -298,6 +298,22 @@
     </div>
 
     <script>
+        async function snapToRoad(lon, lat) {
+    const res = await fetch(
+        `https://router.project-osrm.org/nearest/v1/foot/${lon},${lat}`
+    );
+    const data = await res.json();
+
+    if (data.code !== 'Ok') {
+        throw new Error('No se pudo ajustar a una vía');
+    }
+
+    return {
+        lon: data.waypoints[0].location[0],
+        lat: data.waypoints[0].location[1]
+    };
+}
+
         // UUIDs del servicio BLE
         const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
         const NFC_CHAR_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
@@ -417,85 +433,71 @@
             searchRoute(destination);
         }
 
-        async function searchRoute(destination) {
-            try {
-                spinnerEl.style.display = 'block';
-                log('🔍 Buscando ruta en OpenStreetMap...', 'info');
+       async function searchRoute(destination) {
+    try {
+        spinnerEl.style.display = 'block';
+        log('🔍 Buscando ruta...', 'info');
 
-                // Obtener ubicación actual
-                const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, {
-                        enableHighAccuracy: true,
-                        timeout: 10000
-                    });
-                });
+        const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 10000
+            });
+        });
 
-                const fromLat = position.coords.latitude;
-                const fromLon = position.coords.longitude;
+        const fromSnap = await snapToRoad(
+            position.coords.longitude,
+            position.coords.latitude
+        );
 
-                log(`📍 Ubicación actual: ${fromLat.toFixed(5)}, ${fromLon.toFixed(5)}`, 'info');
+        log('📍 Posición ajustada a vía', 'success');
 
-                // Geocodificar el destino usando Nominatim (OpenStreetMap)
-                // Añadimos viewbox para priorizar resultados cercanos
-                const geocodeUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(destination)}&format=json&limit=1&bounded=0&viewbox=${fromLon-0.5},${fromLat-0.5},${fromLon+0.5},${fromLat+0.5}`;
-                
-                const geocodeRes = await fetch(geocodeUrl, {
-                    headers: {
-                        'User-Agent': 'BastonInteligente/1.0'
-                    }
-                });
-                const geocodeData = await geocodeRes.json();
+        const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(destination)}`,
+            { headers: { 'User-Agent': 'BastonInteligente/1.0' } }
+        );
+        const geo = await geoRes.json();
 
-                if (geocodeData.length === 0) {
-                    throw new Error('Destino no encontrado');
-                }
+        if (!geo.length) throw new Error('Destino no encontrado');
 
-                const toLat = parseFloat(geocodeData[0].lat);
-                const toLon = parseFloat(geocodeData[0].lon);
+        const toSnap = await snapToRoad(
+            parseFloat(geo[0].lon),
+            parseFloat(geo[0].lat)
+        );
 
-                log(`📍 Destino encontrado: ${geocodeData[0].display_name}`, 'success');
-                log(`📍 Coordenadas: ${toLat.toFixed(5)}, ${toLon.toFixed(5)}`, 'info');
+        log('📍 Destino ajustado a vía', 'success');
 
-                // Obtener ruta usando OSRM (Open Source Routing Machine)
-                const routeUrl = `https://router.project-osrm.org/route/v1/foot/${fromLon},${fromLat};${toLon},${toLat}?steps=true&overview=full&language=es`;
-                
-                const routeRes = await fetch(routeUrl);
-                const routeData = await routeRes.json();
+        const routeRes = await fetch(
+            `https://router.project-osrm.org/route/v1/foot/${fromSnap.lon},${fromSnap.lat};${toSnap.lon},${toSnap.lat}?steps=true&language=es`
+        );
+        const routeData = await routeRes.json();
 
-                if (routeData.code !== 'Ok' || !routeData.routes || routeData.routes.length === 0) {
-                    throw new Error('No se pudo calcular la ruta');
-                }
-
-                const route = routeData.routes[0];
-                totalDistance = route.distance;
-                totalDuration = route.duration;
-
-                log(`✓ Ruta calculada: ${(totalDistance/1000).toFixed(2)} km, ${Math.round(totalDuration/60)} minutos`, 'success');
-
-                // Mostrar info de la ruta
-                routeDistanceEl.textContent = totalDistance >= 1000 
-                    ? `${(totalDistance/1000).toFixed(2)} km` 
-                    : `${Math.round(totalDistance)} m`;
-                routeDurationEl.textContent = totalDuration >= 60 
-                    ? `${Math.round(totalDuration/60)} min` 
-                    : `${Math.round(totalDuration)} seg`;
-                routeInfoEl.style.display = 'block';
-
-                // Enviar confirmación al ESP32 (1 ruta disponible)
-                const encoder = new TextEncoder();
-                await routeCharacteristic.writeValue(encoder.encode('1'));
-
-                // Procesar instrucciones
-                processRoute(route);
-
-                spinnerEl.style.display = 'none';
-
-            } catch (error) {
-                log(`❌ Error: ${error.message}`, 'error');
-                spinnerEl.style.display = 'none';
-                speak('Error al buscar la ruta. Intenta con otro destino.');
-            }
+        if (routeData.code !== 'Ok') {
+            throw new Error('No se pudo calcular la ruta');
         }
+
+        const route = routeData.routes[0];
+        totalDistance = route.distance;
+        totalDuration = route.duration;
+
+        routeDistanceEl.textContent = `${Math.round(totalDistance)} m`;
+        routeDurationEl.textContent = `${Math.round(totalDuration / 60)} min`;
+        routeInfoEl.style.display = 'block';
+
+        await routeCharacteristic.writeValue(
+            new TextEncoder().encode('1')
+        );
+
+        processRoute(route);
+        spinnerEl.style.display = 'none';
+
+    } catch (e) {
+        spinnerEl.style.display = 'none';
+        log(`❌ ${e.message}`, 'error');
+        speak('No se pudo calcular la ruta');
+    }
+}
+
 
         function translateDirection(text) {
             // Traducir direcciones comunes de OSRM
