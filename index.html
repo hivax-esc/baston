@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a73e8">
+    <title>Bastón Inteligente</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: #667eea;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+
+        .status.disconnected {
+            background: #fee;
+            color: #c33;
+        }
+
+        .status.connected {
+            background: #efe;
+            color: #3c3;
+        }
+
+        .status.searching {
+            background: #fef3cd;
+            color: #856404;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 10px;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #dc2626;
+        }
+
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .info-box strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .log {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        .log-info {
+            color: #0066cc;
+        }
+
+        .log-success {
+            color: #22c55e;
+            font-weight: 600;
+        }
+
+        .log-error {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .instructions {
+            background: #e0f2fe;
+            border-left: 4px solid #0ea5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .icon {
+            font-size: 40px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .route-info {
+            background: #f0fdf4;
+            border-left: 4px solid #10b981;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .route-info .stat {
+            display: inline-block;
+            margin-right: 20px;
+            font-size: 14px;
+        }
+
+        .route-info .stat strong {
+            color: #10b981;
+        }
+
+        .progress-bar {
+            background: #e5e7eb;
+            border-radius: 10px;
+            height: 8px;
+            margin: 15px 0;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #10b981, #059669);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .current-step {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .current-step .distance-badge {
+            display: inline-block;
+            background: #f59e0b;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .current-step .instruction-text {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="icon">🦯</div>
+            <h1>Bastón Inteligente <span class="badge">GRATIS</span></h1>
+            <p class="subtitle">Navegación con GraphHopper - Sin límites ni costes</p>
+            
+            <div id="status" class="status disconnected">
+                ❌ Desconectado
+            </div>
+
+            <button id="connectBtn" class="btn-primary">
+                📡 Conectar al Bastón
+            </button>
+
+            <button id="disconnectBtn" class="btn-danger" style="display:none;">
+                🔌 Desconectar
+            </button>
+
+            <div class="spinner" id="spinner"></div>
+
+            <div id="destinationInfo" class="info-box" style="display:none;">
+                <strong>📍 Destino detectado:</strong>
+                <span id="destinationText">---</span>
+            </div>
+
+            <div id="routeInfo" class="route-info">
+                <strong>🗺️ Información de la ruta</strong>
+                <div style="margin-top: 10px;">
+                    <div class="stat">📏 <strong id="routeDistance">---</strong></div>
+                    <div class="stat">⏱️ <strong id="routeDuration">---</strong></div>
+                </div>
+            </div>
+
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div id="currentStep" class="current-step">
+                <div class="distance-badge" id="stepDistance">---</div>
+                <div class="instruction-text" id="stepInstruction">---</div>
+                <div style="margin-top: 10px; font-size: 14px; color: #666;">
+                    Paso <span id="stepNumber">1</span> de <span id="totalSteps">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3 style="margin-bottom: 15px; color: #667eea;">📋 Registro de eventos</h3>
+            <div id="log" class="log"></div>
+        </div>
+
+        <div class="instructions">
+            <strong>📖 Instrucciones de uso:</strong><br>
+            1. Haz clic en "Conectar al Bastón"<br>
+            2. Selecciona "BastonInteligente" en el diálogo Bluetooth<br>
+            3. Acerca una tarjeta NFC al bastón con el destino<br>
+            4. El sistema buscará la ruta automáticamente<br>
+            5. Escucha las instrucciones de navegación naturales<br>
+            <br>
+            <strong>✨ Instrucciones mejoradas: "Gira a la izquierda en 100 metros"</strong>
+        </div>
+    </div>
+
+    <script>
+        // UUIDs del servicio BLE
+        const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+        const NFC_CHAR_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+        const ROUTE_CHAR_UUID = 'd8de624e-140f-4a3e-a5f0-7de3f3f5e5e5';
+
+        // GraphHopper API Key (gratis, 500 req/día)
+        const GRAPHHOPPER_KEY = '5d8ba72b-ab2a-4545-a5a7-3f9596a55296';
+
+        let device = null;
+        let server = null;
+        let service = null;
+        let nfcCharacteristic = null;
+        let routeCharacteristic = null;
+        let currentInstructions = [];
+        let instructionIndex = 0;
+        let totalDistance = 0;
+        let totalDuration = 0;
+
+        // Elementos DOM
+        const statusEl = document.getElementById('status');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const logEl = document.getElementById('log');
+        const spinnerEl = document.getElementById('spinner');
+        const destinationInfoEl = document.getElementById('destinationInfo');
+        const destinationTextEl = document.getElementById('destinationText');
+        const routeInfoEl = document.getElementById('routeInfo');
+        const routeDistanceEl = document.getElementById('routeDistance');
+        const routeDurationEl = document.getElementById('routeDuration');
+        const currentStepEl = document.getElementById('currentStep');
+        const stepDistanceEl = document.getElementById('stepDistance');
+        const stepInstructionEl = document.getElementById('stepInstruction');
+        const stepNumberEl = document.getElementById('stepNumber');
+        const totalStepsEl = document.getElementById('totalSteps');
+        const progressBarEl = document.getElementById('progressBar');
+        const progressFillEl = document.getElementById('progressFill');
+
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.insertBefore(entry, logEl.firstChild);
+        }
+
+        function updateStatus(text, state) {
+            statusEl.textContent = text;
+            statusEl.className = `status ${state}`;
+        }
+
+        function speak(text) {
+            return new Promise((resolve) => {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'es-ES';
+                    utterance.rate = 0.85;
+                    utterance.pitch = 1.0;
+                    utterance.volume = 1.0;
+                    utterance.onend = resolve;
+                    utterance.onerror = resolve;
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    log('❌ Text-to-Speech no disponible', 'error');
+                    resolve();
+                }
+            });
+        }
+
+        function formatDistance(meters) {
+            if (meters < 50) {
+                return `${Math.round(meters / 10) * 10} metros`;
+            } else if (meters < 1000) {
+                return `${Math.round(meters / 50) * 50} metros`;
+            } else {
+                return `${(meters / 1000).toFixed(1)} kilómetros`;
+            }
+        }
+
+        function getDirectionText(sign) {
+            const directions = {
+                0: 'continúa recto',
+                1: 'gira ligeramente a la derecha',
+                2: 'gira a la derecha',
+                3: 'gira fuertemente a la derecha',
+                -1: 'gira ligeramente a la izquierda',
+                -2: 'gira a la izquierda',
+                -3: 'gira fuertemente a la izquierda',
+                4: 'has llegado',
+                5: 'has llegado',
+                6: 'toma la rotonda'
+            };
+            return directions[sign] || 'continúa';
+        }
+
+        async function connectBLE() {
+            try {
+                updateStatus('🔍 Buscando dispositivo...', 'searching');
+                spinnerEl.style.display = 'block';
+                log('Buscando dispositivo BLE...', 'info');
+
+                device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'BastonInteligente' }],
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                log(`✓ Dispositivo encontrado: ${device.name}`, 'success');
+                log('Conectando...', 'info');
+
+                server = await device.gatt.connect();
+                log('✓ Conectado al servidor GATT', 'success');
+
+                service = await server.getPrimaryService(SERVICE_UUID);
+                log('✓ Servicio obtenido', 'success');
+
+                nfcCharacteristic = await service.getCharacteristic(NFC_CHAR_UUID);
+                routeCharacteristic = await service.getCharacteristic(ROUTE_CHAR_UUID);
+                
+                await nfcCharacteristic.startNotifications();
+                nfcCharacteristic.addEventListener('characteristicvaluechanged', handleNfcData);
+
+                updateStatus('✅ Conectado al bastón', 'connected');
+                connectBtn.style.display = 'none';
+                disconnectBtn.style.display = 'block';
+                spinnerEl.style.display = 'none';
+
+                log('✅ Sistema listo. Acerca una tarjeta NFC', 'success');
+                await speak('Conectado. Sistema listo.');
+
+            } catch (error) {
+                log(`❌ Error: ${error.message}`, 'error');
+                updateStatus('❌ Error de conexión', 'disconnected');
+                spinnerEl.style.display = 'none';
+            }
+        }
+
+        function handleNfcData(event) {
+            const value = event.target.value;
+            const decoder = new TextDecoder('utf-8');
+            const destination = decoder.decode(value).replace(/\0/g, '').trim();
+
+            log(`📡 Destino recibido: ${destination}`, 'success');
+            destinationTextEl.textContent = destination;
+            destinationInfoEl.style.display = 'block';
+
+            speak(`Destino: ${destination}. Buscando ruta.`);
+            searchRoute(destination);
+        }
+
+        async function searchRoute(destination) {
+            try {
+                spinnerEl.style.display = 'block';
+                log('🔍 Buscando ruta con GraphHopper...', 'info');
+
+                // Obtener ubicación actual
+                log('📡 Solicitando ubicación GPS...', 'info');
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    });
+                });
+
+                const fromLat = position.coords.latitude;
+                const fromLon = position.coords.longitude;
+
+                log(`📍 Ubicación actual: ${fromLat.toFixed(5)}, ${fromLon.toFixed(5)}`, 'success');
+
+                // Geocodificar destino con GraphHopper
+                const geocodeUrl = `https://graphhopper.com/api/1/geocode?q=${encodeURIComponent(destination)}&locale=es&limit=1&key=${GRAPHHOPPER_KEY}`;
+                
+                log(`🔍 Geocodificando: ${destination}`, 'info');
+                
+                const geocodeRes = await fetch(geocodeUrl);
+                if (!geocodeRes.ok) {
+                    throw new Error(`Geocoding falló: ${geocodeRes.status}`);
+                }
+                
+                const geocodeData = await geocodeRes.json();
+
+                if (!geocodeData.hits || geocodeData.hits.length === 0) {
+                    throw new Error(`Destino "${destination}" no encontrado. Intenta algo más específico.`);
+                }
+
+                const toLat = geocodeData.hits[0].point.lat;
+                const toLon = geocodeData.hits[0].point.lng;
+
+                log(`📍 Destino: ${geocodeData.hits[0].name || destination}`, 'success');
+                log(`📍 Coordenadas: ${toLat.toFixed(5)}, ${toLon.toFixed(5)}`, 'success');
+
+                // Calcular ruta con GraphHopper
+                const routeUrl = `https://graphhopper.com/api/1/route?point=${fromLat},${fromLon}&point=${toLat},${toLon}&vehicle=foot&locale=es&instructions=true&points_encoded=false&key=${GRAPHHOPPER_KEY}`;
+                
+                log('🗺️ Calculando ruta a pie...', 'info');
+                
+                const routeRes = await fetch(routeUrl);
+                if (!routeRes.ok) {
+                    throw new Error(`Routing falló: ${routeRes.status}`);
+                }
+                
+                const routeData = await routeRes.json();
+
+                if (!routeData.paths || routeData.paths.length === 0) {
+                    throw new Error('No se encontró ninguna ruta');
+                }
+
+                const path = routeData.paths[0];
+                totalDistance = path.distance;
+                totalDuration = path.time / 1000; // GraphHopper da tiempo en ms
+
+                log(`✓ Ruta calculada: ${(totalDistance/1000).toFixed(2)} km, ${Math.round(totalDuration/60)} min`, 'success');
+
+                // Mostrar info de la ruta
+                routeDistanceEl.textContent = totalDistance >= 1000 
+                    ? `${(totalDistance/1000).toFixed(2)} km` 
+                    : `${Math.round(totalDistance)} m`;
+                routeDurationEl.textContent = totalDuration >= 60 
+                    ? `${Math.round(totalDuration/60)} min` 
+                    : `${Math.round(totalDuration)} seg`;
+                routeInfoEl.style.display = 'block';
+
+                // Enviar confirmación al ESP32
+                if (routeCharacteristic) {
+                    const encoder = new TextEncoder();
+                    await routeCharacteristic.writeValue(encoder.encode('1'));
+                }
+
+                // Procesar instrucciones
+                processInstructions(path.instructions);
+
+                spinnerEl.style.display = 'none';
+
+            } catch (error) {
+                log(`❌ ERROR: ${error.message}`, 'error');
+                console.error('Error completo:', error);
+                spinnerEl.style.display = 'none';
+                speak(`Error: ${error.message}`);
+            }
+        }
+
+        function processInstructions(instructions) {
+            currentInstructions = [];
+
+            log('📍 Procesando instrucciones...', 'info');
+
+            // Introducción
+            const distanceText = formatDistance(totalDistance);
+            const durationMin = Math.round(totalDuration / 60);
+            const intro = `Ruta calculada. Distancia total: ${distanceText}. Duración estimada: ${durationMin} minutos. Comenzamos.`;
+            currentInstructions.push({
+                text: intro,
+                distance: totalDistance,
+                isIntro: true
+            });
+
+            // Procesar cada instrucción
+            instructions.forEach((instr, index) => {
+                if (instr.sign === 5 || instr.sign === 4) {
+                    // Llegada
+                    currentInstructions.push({
+                        text: 'Has llegado a tu destino.',
+                        distance: 0,
+                        isFinal: true
+                    });
+                } else {
+                    const direction = getDirectionText(instr.sign);
+                    const distance = formatDistance(instr.distance);
+                    
+                    let text = '';
+                    if (index === 0) {
+                        text = `Comienza: ${direction} durante ${distance}`;
+                    } else {
+                        text = `${direction.charAt(0).toUpperCase() + direction.slice(1)} en ${distance}`;
+                    }
+
+                    currentInstructions.push({
+                        text: text,
+                        distance: instr.distance,
+                        direction: direction
+                    });
+                }
+            });
+
+            totalStepsEl.textContent = currentInstructions.length;
+            log(`✓ ${currentInstructions.length} instrucciones preparadas`, 'success');
+            
+            currentStepEl.style.display = 'block';
+            progressBarEl.style.display = 'block';
+
+            // Comenzar navegación
+            instructionIndex = 0;
+            playNextInstruction();
+        }
+
+        async function playNextInstruction() {
+            if (instructionIndex >= currentInstructions.length) {
+                log('✅ Navegación completada', 'success');
+                stepInstructionEl.textContent = '✅ Has llegado a tu destino';
+                stepDistanceEl.textContent = '0 m';
+                progressFillEl.style.width = '100%';
+                await speak('Navegación completada. Has llegado a tu destino.');
+                return;
+            }
+
+            const step = currentInstructions[instructionIndex];
+            
+            // Actualizar UI
+            stepNumberEl.textContent = instructionIndex + 1;
+            stepInstructionEl.textContent = step.text;
+            
+            if (step.isIntro || step.isFinal) {
+                stepDistanceEl.textContent = '---';
+            } else {
+                stepDistanceEl.textContent = formatDistance(step.distance);
+            }
+            
+            // Actualizar barra de progreso
+            const progress = ((instructionIndex + 1) / currentInstructions.length) * 100;
+            progressFillEl.style.width = `${progress}%`;
+
+            log(`🔊 ${step.text}`, 'info');
+
+            // Reproducir instrucción
+            await speak(step.text);
+            
+            instructionIndex++;
+            
+            // Esperar 1.5 segundos antes de la siguiente
+            setTimeout(playNextInstruction, 1500);
+        }
+
+        function disconnect() {
+            if (device && device.gatt.connected) {
+                device.gatt.disconnect();
+                log('🔌 Desconectado', 'info');
+            }
+            
+            updateStatus('❌ Desconectado', 'disconnected');
+            connectBtn.style.display = 'block';
+            disconnectBtn.style.display = 'none';
+            destinationInfoEl.style.display = 'none';
+            routeInfoEl.style.display = 'none';
+            currentStepEl.style.display = 'none';
+            progressBarEl.style.display = 'none';
+            
+            device = null;
+            server = null;
+            service = null;
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connectBLE);
+        disconnectBtn.addEventListener('click', disconnect);
+
+        log('📱 App iniciada con GraphHopper.', 'info');
+        log('✨ 500 solicitudes gratis al día.', 'success');
+    </script>
+</body>
+</html>
