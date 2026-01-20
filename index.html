@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bastón Inteligente</title>
+</head>
+<body>
+
+<button id="connectBtn">Conectar bastón</button>
+<div id="status">Desconectado</div>
+<div id="log"></div>
+
+<script>
+/* ================= CONFIG ================= */
+const GRAPHHOPPER_API_KEY = "PEGA_AQUI_TU_API_KEY";
+
+/* BLE UUIDs */
+const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+const NFC_CHAR_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+const ROUTE_CHAR_UUID = 'd8de624e-140f-4a3e-a5f0-7de3f3f5e5e5';
+
+/* ================= ESTADO ================= */
+let device, server, service;
+let nfcCharacteristic, routeCharacteristic;
+let instructions = [];
+let index = 0;
+
+/* ================= UTIL ================= */
+function log(msg) {
+    document.getElementById("log").innerHTML =
+        `[${new Date().toLocaleTimeString()}] ${msg}<br>` +
+        document.getElementById("log").innerHTML;
+}
+
+function speak(text) {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "es-ES";
+    u.rate = 0.9;
+    window.speechSynthesis.speak(u);
+}
+
+/* ================= BLE ================= */
+async function connectBLE() {
+    device = await navigator.bluetooth.requestDevice({
+        filters: [{ name: 'BastonInteligente' }],
+        optionalServices: [SERVICE_UUID]
+    });
+
+    server = await device.gatt.connect();
+    service = await server.getPrimaryService(SERVICE_UUID);
+
+    nfcCharacteristic = await service.getCharacteristic(NFC_CHAR_UUID);
+    routeCharacteristic = await service.getCharacteristic(ROUTE_CHAR_UUID);
+
+    await nfcCharacteristic.startNotifications();
+    nfcCharacteristic.addEventListener(
+        'characteristicvaluechanged',
+        handleNfc
+    );
+
+    document.getElementById("status").textContent = "Conectado";
+    speak("Bastón conectado");
+    log("BLE conectado");
+}
+
+async function handleNfc(e) {
+    const text = new TextDecoder().decode(e.target.value).replace(/\0/g, '').trim();
+    log("Destino NFC: " + text);
+    speak("Destino " + text);
+    calcularRuta(text);
+}
+
+/* ================= RUTA ================= */
+async function calcularRuta(destino) {
+    try {
+        log("Obteniendo posición actual");
+
+        const pos = await new Promise((res, rej) =>
+            navigator.geolocation.getCurrentPosition(res, rej, {
+                enableHighAccuracy: true,
+                timeout: 10000
+            })
+        );
+
+        const fromLat = pos.coords.latitude;
+        const fromLon = pos.coords.longitude;
+
+        log("Geocodificando destino");
+
+        const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(destino)}`
+        );
+        const geo = await geoRes.json();
+        if (!geo.length) throw "Destino no encontrado";
+
+        const toLat = geo[0].lat;
+        const toLon = geo[0].lon;
+
+        log("Calculando ruta con GraphHopper");
+
+        const routeRes = await fetch(
+            `https://graphhopper.com/api/1/route?` +
+            `point=${fromLat},${fromLon}` +
+            `&point=${toLat},${toLon}` +
+            `&vehicle=foot` +
+            `&locale=es` +
+            `&instructions=true` +
+            `&calc_points=false` +
+            `&key=${GRAPHHOPPER_API_KEY}`
+        );
+
+        const data = await routeRes.json();
+        if (!data.paths || !data.paths.length) throw "Ruta no disponible";
+
+        await routeCharacteristic.writeValue(new TextEncoder().encode("1"));
+        procesarInstrucciones(data.paths[0]);
+
+    } catch (e) {
+        log("ERROR: " + e);
+        speak("No se pudo calcular la ruta");
+    }
+}
+
+/* ================= INSTRUCCIONES ================= */
+function procesarInstrucciones(path) {
+    instructions = [];
+    index = 0;
+
+    const dist = path.distance > 1000
+        ? (path.distance / 1000).toFixed(1) + " kilómetros"
+        : Math.round(path.distance) + " metros";
+
+    const time = Math.round(path.time / 60000) + " minutos";
+
+    instructions.push(
+        `Ruta calculada. Distancia ${dist}. Duración ${time}.`
+    );
+
+    for (const i of path.instructions) {
+        let t = i.text;
+        if (i.distance > 5) {
+            const d = i.distance > 1000
+                ? (i.distance / 1000).toFixed(1) + " kilómetros"
+                : Math.round(i.distance) + " metros";
+            t += ` durante ${d}`;
+        }
+        instructions.push(t);
+    }
+
+    instructions.push("Has llegado a tu destino");
+    speakNext();
+}
+
+function speakNext() {
+    if (index >= instructions.length) return;
+    speak(instructions[index]);
+    log(instructions[index]);
+    index++;
+    setTimeout(speakNext, 1200);
+}
+
+/* ================= INIT ================= */
+document.getElementById("connectBtn").onclick = connectBLE;
+log("App lista. Solo falta la API key.");
+</script>
+
+</body>
+</html>
